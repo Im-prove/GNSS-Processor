@@ -21,6 +21,7 @@ A C++17 implementation of the [GNSS Processor take-home assignment](ASSIGNMENT.m
 - [Build and run](#build-and-run)
 - [CSV format and replay](#csv-format-and-replay)
 - [Tests and sample results](#tests-and-sample-results)
+- [Test case descriptions](docs/TEST_CASES.md)
 - [Limitations](#limitations)
 - [Project files and further reading](#project-files-and-further-reading)
 
@@ -194,6 +195,8 @@ A missing file, invalid header, or read error stops replay with exit status `2`.
 
 The test executable contains 29 named checks covering accepted and rejected frames, coordinate and HDOP boundaries, non-finite values, fix and satellite rules, timestamp ordering and gaps, recovery, configuration, `(0, 0)` enabled/disabled behavior, and `reset()`.
 
+See the [test case guide](docs/TEST_CASES.md) for a numbered description of every check.
+
 All 29 checks passed using MSYS2 GCC with C++17 and warning flags. Replaying the supplied `gnss.csv` produced:
 
 ```text
@@ -223,6 +226,7 @@ Malformed-row handling was also checked with CRLF input containing invalid text 
 | [RESPONSE.md](RESPONSE.md) | AI assistance disclosure and verification record |
 | [docs/CODE_WALKTHROUGH.md](docs/CODE_WALKTHROUGH.md) | High-level pseudocode and repository map |
 | [docs/BEGINNER_CODE_WALKTHROUGH.md](docs/BEGINNER_CODE_WALKTHROUGH.md) | Detailed explanation of the implementation and trade-offs |
+| [docs/TEST_CASES.md](docs/TEST_CASES.md) | Numbered explanation of all 29 processor tests |
 | [docs/ASSUMPTION_TRACEABILITY.md](docs/ASSUMPTION_TRACEABILITY.md) | Rationale, evidence, and limits for implementation decisions |
 | [docs/INTERVIEW_PREP.md](docs/INTERVIEW_PREP.md) | Interview questions and answer outlines |
 | [docs/SUBMISSION_CHECKLIST.md](docs/SUBMISSION_CHECKLIST.md) | Assignment coverage and submission checklist |

@@ -189,9 +189,10 @@ A `true` result does not prove a GNSS fix is safe for control. This exercise doe
 ### Guides and presentation material
 
 - [`CODE_WALKTHROUGH.md`](CODE_WALKTHROUGH.md) explains the system flow and major algorithms using pseudocode. It also gives a quick description of every project file.
+- [`TEST_CASES.md`](TEST_CASES.md) explains all 29 named checks in the processor test program.
 - [`ASSUMPTION_TRACEABILITY.md`](ASSUMPTION_TRACEABILITY.md) provides a review table connecting decisions to source locations, prompt/test evidence, rationale, and limits. Consult it when deciding whether a threshold is a requirement or an engineering choice.
 - [`INTERVIEW_PREP.md`](INTERVIEW_PREP.md) offers likely discussion questions and answer outlines about the implementation, trade-offs, and next steps.
 - [`SUBMISSION_CHECKLIST.md`](SUBMISSION_CHECKLIST.md) maps assignment items to their evidence and records status or remaining submission tasks.
 - [`GNSS_Processor_Overview.pptx`](GNSS_Processor_Overview.pptx) is a single-slide visual summary intended for presentation or quick review.
 
-Build executables from the C++ sources using the README commands.
+  Build executables from the C++ sources using the README commands.

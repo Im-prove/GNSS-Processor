@@ -16,6 +16,7 @@ CANDIDATE_RESPONSE.md     Candidate answers about design and limitations
 RESPONSE.md               AI assistance and verification disclosure
 docs/CODE_WALKTHROUGH.md  This high-level pseudocode guide
 docs/BEGINNER_CODE_WALKTHROUGH.md  Detailed source explanation
+docs/TEST_CASES.md                  Explanation of all 29 processor checks
 docs/ASSUMPTION_TRACEABILITY.md    Decisions, evidence, rationale, limits
 docs/INTERVIEW_PREP.md             Interview question and answer practice
 docs/SUBMISSION_CHECKLIST.md       Assignment coverage and final checks
@@ -148,6 +149,7 @@ The 29 test cases exercise normal acceptance, quality thresholds and their bound
 - [`RESPONSE.md`](../RESPONSE.md) records AI assistance and verification information for disclosure.
 - [`CODE_WALKTHROUGH.md`](CODE_WALKTHROUGH.md) is this concise system-level pseudocode guide.
 - [`BEGINNER_CODE_WALKTHROUGH.md`](BEGINNER_CODE_WALKTHROUGH.md) is the more detailed, source-oriented explanation, including implementation reasoning and trade-offs.
+- [`TEST_CASES.md`](TEST_CASES.md) describes each named processor check and the behavior it verifies.
 - [`ASSUMPTION_TRACEABILITY.md`](ASSUMPTION_TRACEABILITY.md) connects each chosen behavior to code/tests, its source or rationale, and its limitations.
 - [`INTERVIEW_PREP.md`](INTERVIEW_PREP.md) contains likely technical questions, suggested answer outlines, and discussion points for explaining the solution.
 - [`SUBMISSION_CHECKLIST.md`](SUBMISSION_CHECKLIST.md) maps assignment requirements to the evidence in the project and notes submission-specific follow-ups.
