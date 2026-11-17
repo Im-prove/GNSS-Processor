@@ -1,79 +1,134 @@
 # GNSS Processor
 
-C++17 implementation of a small GNSS frame validator and CSV replay tool. It uses the C++ standard library and has build instructions for Windows, Linux, and macOS.
+A C++17 implementation of the [GNSS Processor take-home assignment](ASSIGNMENT.md). It validates GNSS frames and replays a recorded CSV log, demonstrating input validation, timestamp handling, configurable quality thresholds, and focused unit tests using only the C++ standard library.
 
-## Project files
+## At a glance
 
-| File | Purpose |
-| --- | --- |
-| `gnss_processor.h/.cpp` | Frame type, configurable limits, validation, timestamp handling, and accepted-position output |
-| `test_gnss_processor.cpp` | 29 processor behavior checks |
-| `replay_gnss.cpp` | Six-column CSV reader and replay summary |
-| `gnss.csv` | Sample recording |
-| `ASSIGNMENT.md` | Original assignment prompt |
-| `CANDIDATE_RESPONSE.md` | Answers to the four assignment questions |
-| `RESPONSE.md` | Record of AI assistance used for this submission |
-| `docs/CODE_WALKTHROUGH.md` | High-level flow and pseudocode |
-| `docs/BEGINNER_CODE_WALKTHROUGH.md` | Source-oriented explanations and trade-offs |
-| `docs/INTERVIEW_PREP.md` | Technical questions and design limitations |
-| `docs/ASSUMPTION_TRACEABILITY.md` | Rationale and source for each implementation decision |
-| `docs/SUBMISSION_CHECKLIST.md` | Assignment coverage and outstanding submission details |
-| `docs/GNSS_Processor_Overview.pptx` | One-slide design summary |
+- **Language:** C++17
+- **Dependencies:** C++ standard library only
+- **Tests:** 29 processor checks; all passed with MSYS2 GCC on Windows
+- **Replay sample:** 500 rows, 459 accepted and 41 rejected
+- **Programs:** a reusable `GnssProcessor`, a processor test executable, and a CSV replay tool
 
-## Behavior
+> This project implements the take-home requirements. Its checks do not certify a position as safe or accurate enough for robot navigation.
 
-`GnssProcessor::process()` returns `true` and prints a position for an accepted frame. It returns `false` and prints nothing for a rejected frame. The processor stores only the latest received timestamp; it does not retain the last accepted position. The caller must retain accepted results if it needs a last-known-good fix or freshness check.
+## Contents
 
-The default configuration is:
+- [What the project does](#what-the-project-does)
+- [Clone the repository](#clone-the-repository)
+- [Processing behavior](#processing-behavior)
+- [Configuration](#configuration)
+- [Build and run](#build-and-run)
+- [CSV format and replay](#csv-format-and-replay)
+- [Tests and sample results](#tests-and-sample-results)
+- [Limitations](#limitations)
+- [Project files and further reading](#project-files-and-further-reading)
 
-| Limit | Default | Meaning |
-| --- | ---: | --- |
-| `max_hdop` | `5.0` | Reject HDOP above this value |
-| `min_satellites` | `4` | Reject frames using fewer satellites |
-| `max_gap_ms` | `1500` | Reject newer frames with a larger time gap |
-| `reject_null_island` | `true` | Reject the exact `(0, 0)` coordinate |
+## What the project does
 
-Pass a `GnssProcessor::Config` to tune these policies. The Null Island check defaults to enabled for land-based robots; set `reject_null_island = false` for a marine robot or another system that may legitimately operate at `(0, 0)`. For example: `GnssProcessor::Config config; config.reject_null_island = false; GnssProcessor processor(config);`. The configuration constructor does not validate its values; callers should provide finite, nonnegative HDOP limits, a sensible satellite minimum, and a positive gap limit. `reset()` clears timestamp history so the next frame starts a new stream session.
+`GnssProcessor::process()` receives one `GnssFrame` at a time. It checks timestamp ordering and the time gap, validates the measurement and quality fields, then returns `true` for an accepted frame or `false` for a rejected one. Accepted positions are printed to standard output with six decimal places; rejected positions are silent.
 
-## Validation rules and assumptions
+The replay program reads `gnss.csv`, validates each row, converts it to a `GnssFrame`, and sends it through the same processor used by the unit tests.
 
-- Timestamps are milliseconds from one source clock. After the first frame, they must strictly increase.
-- At a nominal 10 Hz, the expected interval is 100 ms. The processor allows normal jitter; it rejects gaps above the configured limit. A gap exactly equal to the default 1500 ms is accepted.
-- Latitude and longitude must be finite and within the general geographic bounds `[-90, 90]` and `[-180, 180]`. These are coordinate-domain checks, not GNSS accuracy limits.
-- When `reject_null_island` is true, the exact `(0, 0)` coordinate is rejected as a presumed uninitialized placeholder. The default assumes a land-based mobile robot: this ocean location is outside its expected operating area, and all-zero coordinates are a common default before a receiver supplies a fix. This is an application heuristic, not a GNSS rule; `(0, 0)` is a real geographic location ([map](https://www.openstreetmap.org/?mlat=0&mlon=0#map=5/0/0)). Marine and other applications can disable the check in `Config`.
-- HDOP must be finite, nonnegative, and no greater than `max_hdop`.
-- `satellites_used` must be at least `min_satellites`.
-- Fix types 1 and 2 are accepted. Fix type 0 and unknown values are rejected.
-
-The original starter test rejects a 1600 ms gap; the 1500 ms cutoff is the implementation's chosen precise boundary. A four-satellite minimum is common for a standard 3D GPS solution, but receiver modes and aided solutions may differ. These assumptions should be checked against the target receiver and robot.
-
-## Timestamp handling
-
-For each newer frame, the processor calculates the gap and records the frame timestamp as the new received-time baseline before checking quality. A quality-rejected frame therefore advances stream time. A gap-rejected frame also becomes the new baseline, allowing a following normally spaced frame to recover. Duplicate and older frames do not change state.
-
-Example: a valid frame at 1000 ms, a poor-quality frame at 1100 ms, and a valid frame at 1200 ms produce accept, reject, accept. After a long outage, the first frame is rejected; a regular frame after it may pass. Calling `reset()` clears the received-time baseline when the caller starts a new receiver session. The processor does not track an accepted-time value.
-
-## CSV input
-
-The replay tool expects this header and column order:
-
-```csv
-timestamp_ms,lat,lon,hdop,satellites_used,fix_type
+```mermaid
+flowchart LR
+    CSV[gnss.csv] --> Parser[CSV parser]
+    Parser --> Frame[GnssFrame]
+    Tests[Processor tests] --> Processor[GnssProcessor]
+    Frame --> Processor
+    Processor -->|accepted| Position[Print position and return true]
+    Processor -->|rejected| Result[Return false]
+    Parser --> Summary[Replay counts]
 ```
 
-Rows must contain exactly six unquoted numeric fields. Surrounding whitespace is trimmed. Timestamps must be unsigned decimal digits; coordinates and HDOP accept decimal notation with an optional sign and exponent; satellite count and fix type must be integers. Text such as `lon=as`, NaN/Inf spellings, missing fields, extra columns, invalid syntax, and conversion overflow are rejected as malformed rows. The tool reports the source line number and continues. A syntactically valid number can still fail GNSS validation.
+## Clone the repository
 
-The parser supports LF and CRLF line endings. It is not a general quoted-CSV parser. Missing or incorrect headers, file-open failures, and read failures stop replay with status 2.
+Run the same `git clone` command in Windows Command Prompt, PowerShell, or Linux. It creates a `GNSS-Processor` folder in the current directory; then change into that folder before building.
+
+**Windows Command Prompt**
+
+```bat
+git clone https://github.com/Im-prove/GNSS-Processor.git
+cd GNSS-Processor
+```
+
+**Windows PowerShell**
+
+```powershell
+git clone https://github.com/Im-prove/GNSS-Processor.git
+Set-Location GNSS-Processor
+```
+
+**Linux**
+
+```sh
+git clone https://github.com/Im-prove/GNSS-Processor.git
+cd GNSS-Processor
+```
+
+Git must be installed and available on `PATH`, and the destination folder must not already exist.
+
+## Processing behavior
+
+Each frame is checked against the following project policies:
+
+| Check | Default behavior |
+| --- | --- |
+| Timestamp order | After the first frame, timestamps must strictly increase. |
+| Timestamp gap | Reject a newer frame when the gap is greater than 1500 ms. A gap of exactly 1500 ms passes. |
+| Coordinates | Latitude and longitude must be finite and within `[-90, 90]` and `[-180, 180]`. |
+| `(0, 0)` coordinate | Rejected by default through `Config::reject_null_island`; the option can be disabled. |
+| HDOP | Must be finite and between 0 and the configured maximum, inclusive. |
+| Satellites | Must meet the configured minimum. |
+| Fix type | Accepts `1` (standard GPS) and `2` (mixed); rejects `0` and unknown values. |
+
+The expected input rate is 10 Hz, or about one frame every 100 ms. That interval is nominal: the processor allows jitter and uses the configurable maximum gap to identify longer interruptions.
+
+For every newer packet, the processor advances its received-timestamp baseline before checking measurement quality. A poor-quality packet is rejected but does not make the next normal packet appear out of order. The first packet after an excessive gap is rejected and becomes the new baseline; a following regularly timed packet can recover. Call `reset()` when the caller knows that a new timestamp session has started.
+
+### The `(0, 0)` policy
+
+The default assumes a land-based mobile robot. `(0, 0)` lies in the ocean and is outside the expected operating area; an all-zero coordinate is also a common placeholder before a receiver supplies a fix. This is an application heuristic, not a GNSS rule: it is a real geographic location ([map at 0 degrees latitude, 0 degrees longitude](https://www.openstreetmap.org/?mlat=0&mlon=0#map=5/0/0)). Marine robots and other systems that may operate there can disable the check in `Config`.
+
+## Configuration
+
+The default configuration preserves the assignment's current policies:
+
+| `GnssProcessor::Config` field | Default | Purpose |
+| --- | ---: | --- |
+| `max_hdop` | `5.0` | Maximum accepted HDOP |
+| `min_satellites` | `4` | Minimum satellites used |
+| `max_gap_ms` | `1500` | Maximum accepted gap between newer frames |
+| `reject_null_island` | `true` | Reject exact `(0, 0)` coordinates when enabled |
+
+This complete example configures a marine robot to accept the exact `(0, 0)` coordinate. Save it as `marine_example.cpp` in the project folder to compile it with the processor:
+
+```cpp
+#include "gnss_processor.h"
+
+int main() {
+    GnssProcessor::Config config;
+    config.max_hdop = 3.0f;
+    config.reject_null_island = false;
+
+    GnssProcessor processor(config);
+    const GnssFrame frame{1000, 0.0, 0.0, 1.2f, 8, 1};
+    return processor.process(frame) ? 0 : 1;
+}
+```
+
+The constructor does not validate configuration values. Supply sensible limits, including a finite nonnegative HDOP maximum, a suitable satellite minimum, and a positive gap limit.
 
 ## Build and run
 
-Run from the project directory with a C++17 compiler. The examples use GCC or a compatible Clang. `-pthread` enables mutex support on toolchains that require it.
+A C++17 compiler is required. GCC and Clang examples are shown below; the code has no third-party library dependencies.
 
 ### Linux
 
 ```sh
 g++ -std=c++17 -pthread -Wall -Wextra -Wpedantic test_gnss_processor.cpp gnss_processor.cpp -o test_gnss
 ./test_gnss
+
 g++ -std=c++17 -pthread -Wall -Wextra -Wpedantic replay_gnss.cpp gnss_processor.cpp -o replay_gnss
 ./replay_gnss gnss.csv
 ```
@@ -83,35 +138,92 @@ g++ -std=c++17 -pthread -Wall -Wextra -Wpedantic replay_gnss.cpp gnss_processor.
 ```sh
 clang++ -std=c++17 -pthread -Wall -Wextra -Wpedantic test_gnss_processor.cpp gnss_processor.cpp -o test_gnss
 ./test_gnss
+
 clang++ -std=c++17 -pthread -Wall -Wextra -Wpedantic replay_gnss.cpp gnss_processor.cpp -o replay_gnss
 ./replay_gnss gnss.csv
 ```
 
-### Windows with MSYS2 UCRT64 GCC
+### Windows (PowerShell with MSYS2 UCRT64 GCC)
 
-Add `C:\msys64\ucrt64\bin` to `PATH` so GCC and the generated programs can find their runtime DLLs. In PowerShell:
+Ensure `C:\msys64\ucrt64\bin` is on `PATH` so the compiler and generated programs can find their runtime DLLs.
 
 ```powershell
 g++ -std=c++17 -pthread -Wall -Wextra -Wpedantic test_gnss_processor.cpp gnss_processor.cpp -o test_gnss.exe
 .\test_gnss.exe
+
 g++ -std=c++17 -pthread -Wall -Wextra -Wpedantic replay_gnss.cpp gnss_processor.cpp -o replay_gnss.exe
 .\replay_gnss.exe gnss.csv
 ```
 
-## Tests and replay output
+### Windows (Command Prompt with MSYS2 UCRT64 GCC)
 
-The test program has 29 cases covering normal frames, quality/fix rules, coordinate bounds, `(0,0)` handling with the default and disabled setting, custom limits, timestamp boundaries, rejected-frame recovery, and `reset()`. A `[PASS]` on a rejection test means `process()` returned `false` as expected. Accepted-position output is separate; rejected positions are intentionally silent.
+Paste these commands into **Command Prompt** from any directory. They change to the project folder, add MSYS2 GCC to the current terminal's `PATH`, build and run the tests, then build and run the CSV replay:
 
-The supplied CSV contains 500 rows. Replay accepted 459 and rejected 41. Malformed-row handling was also checked with CRLF input containing `lon=as` and a text satellite count; the tool reported those rows and continued.
+```bat
+cd /d "%USERPROFILE%\Downloads\GNSS Processor"
+set "PATH=C:\msys64\ucrt64\bin;%PATH%"
+g++ -std=c++17 -pthread -Wall -Wextra -Wpedantic test_gnss_processor.cpp gnss_processor.cpp -o test_gnss.exe && test_gnss.exe
+g++ -std=c++17 -pthread -Wall -Wextra -Wpedantic replay_gnss.cpp gnss_processor.cpp -o replay_gnss.exe && replay_gnss.exe gnss.csv
+```
 
-## Limits before robot use
+To compile the `marine_example.cpp` configuration example above from the project folder, run:
 
-- The `(0,0)` rejection can discard a legitimate coordinate; disable it in `Config` for marine or other applications where the point is in the operating area.
-- `Config` values are not validated by the constructor.
-- The processor returns only `bool`, does not retain the last accepted fix, and has no freshness API.
-- HDOP and satellite count do not guarantee position integrity or accuracy. Add receiver integrity data and motion checks based on robot requirements.
-- Output is written to `std::cout` to meet the assignment. Production code should return a result or use a logger callback.
-- The per-instance mutex protects state but makes `GnssProcessor` non-copyable by default. It does not reorder concurrent input by timestamp.
-- CSV parsing supports six unquoted numeric fields only.
+```bat
+g++ -std=c++17 -pthread -Wall -Wextra -Wpedantic marine_example.cpp gnss_processor.cpp -o marine_example.exe && marine_example.exe
+```
 
-For decision rationale, see `docs/ASSUMPTION_TRACEABILITY.md`. For source explanations, see `docs/CODE_WALKTHROUGH.md` and `docs/BEGINNER_CODE_WALKTHROUGH.md`. The AI assistance record is in `RESPONSE.md`.
+## CSV format and replay
+
+The replay tool expects this exact header and column order:
+
+```csv
+timestamp_ms,lat,lon,hdop,satellites_used,fix_type
+```
+
+Each data row must contain exactly six unquoted fields:
+
+1. `timestamp_ms`: unsigned decimal integer.
+2. `lat`, `lon`, `hdop`: decimal numbers; an optional sign, fractional part, and exponent are supported.
+3. `satellites_used`, `fix_type`: signed integer syntax.
+
+The parser trims surrounding whitespace and supports LF and CRLF line endings. It rejects malformed syntax (for example, text in `lon`), NaN/Inf spellings, missing or extra fields, and conversion overflow. A malformed data row is reported with its source line number and skipped; later rows are still processed. A syntactically valid value can still be rejected by `GnssProcessor` if it violates a GNSS policy.
+
+A missing file, invalid header, or read error stops replay with exit status `2`. The parser handles this fixed numeric schema; it is not a general quoted-CSV parser.
+
+## Tests and sample results
+
+The test executable contains 29 named checks covering accepted and rejected frames, coordinate and HDOP boundaries, non-finite values, fix and satellite rules, timestamp ordering and gaps, recovery, configuration, `(0, 0)` enabled/disabled behavior, and `reset()`.
+
+All 29 checks passed using MSYS2 GCC with C++17 and warning flags. Replaying the supplied `gnss.csv` produced:
+
+```text
+Replay summary: rows=500, accepted=459, rejected=41
+```
+
+Malformed-row handling was also checked with CRLF input containing invalid text fields; those rows were reported and replay continued. The replay parser does not have a separate automated integration-test target.
+
+## Limitations
+
+- There is no kinematic or speed-jump check. The assignment does not specify robot speed or receiver error limits, so this implementation does not invent them.
+- The processor returns a boolean and prints accepted coordinates. It does not retain the last accepted fix, expose a freshness check, or provide structured rejection reasons.
+- HDOP and satellite count alone do not establish position integrity or accuracy. A real navigation stack should use receiver integrity/status data and robot-specific requirements.
+- `GnssProcessor` protects per-instance state with a mutex. A separate internal mutex serializes output lines from multiple instances; neither lock sorts concurrently arriving frames by timestamp.
+- The CSV reader supports six unquoted numeric fields only.
+
+## Project files and further reading
+
+| File | Description |
+| --- | --- |
+| [gnss_processor.h](gnss_processor.h) / [gnss_processor.cpp](gnss_processor.cpp) | Frame type, processor API, configuration, validation, timestamp handling, and accepted-position output |
+| [test_gnss_processor.cpp](test_gnss_processor.cpp) | 29 processor behavior checks |
+| [replay_gnss.cpp](replay_gnss.cpp) | Strict six-column CSV parser and replay summary |
+| [gnss.csv](gnss.csv) | Sample recording used by the replay program |
+| [ASSIGNMENT.md](ASSIGNMENT.md) | Original take-home assignment and requirements |
+| [CANDIDATE_RESPONSE.md](CANDIDATE_RESPONSE.md) | Answers to the assignment's four design questions |
+| [RESPONSE.md](RESPONSE.md) | AI assistance disclosure and verification record |
+| [docs/CODE_WALKTHROUGH.md](docs/CODE_WALKTHROUGH.md) | High-level pseudocode and repository map |
+| [docs/BEGINNER_CODE_WALKTHROUGH.md](docs/BEGINNER_CODE_WALKTHROUGH.md) | Detailed explanation of the implementation and trade-offs |
+| [docs/ASSUMPTION_TRACEABILITY.md](docs/ASSUMPTION_TRACEABILITY.md) | Rationale, evidence, and limits for implementation decisions |
+| [docs/INTERVIEW_PREP.md](docs/INTERVIEW_PREP.md) | Interview questions and answer outlines |
+| [docs/SUBMISSION_CHECKLIST.md](docs/SUBMISSION_CHECKLIST.md) | Assignment coverage and submission checklist |
+| [docs/GNSS_Processor_Overview.pptx](docs/GNSS_Processor_Overview.pptx) | One-slide design overview |
