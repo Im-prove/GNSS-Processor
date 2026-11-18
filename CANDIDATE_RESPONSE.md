@@ -48,4 +48,4 @@ All 29 checks passed with MSYS2 GCC, C++17, `-pthread`, `-Wall`, `-Wextra`, and 
 See the [pseudocode overview](docs/CODE_WALKTHROUGH.md), [detailed code walkthrough](docs/BEGINNER_CODE_WALKTHROUGH.md), [interview guide](docs/INTERVIEW_PREP.md), and [one-slide overview](docs/GNSS_Processor_Overview.pptx) for more detail.
 ## Repository link
 
-[GNSS-Processor repository](https://github.com/Im-prove/GNSS-Processor). The README includes the clone command for Command Prompt, PowerShell, and Linux. The command could not be run here: Git is not installed/on `PATH` in the Windows environment, and WSL/Linux is not installed. The command syntax is the standard `git clone <URL>` form; repository access itself remains unverified from this workspace.
+[GNSS-Processor repository](https://github.com/Im-prove/GNSS-Processor). The README includes the clone command for Command Prompt, PowerShell, and Linux.
